@@ -12,18 +12,22 @@ library(plotly)
 
 mydata <- read_excel("serviceperformance.xlsx")
 
-
 ui <- dashboardPage(
-  
+
   # Dashboard Header
-  dashboardHeader(title = "Service A&F"),
+  dashboardHeader(
+    title = "Service A&F Dashboard",
+    titleWidth = 250
+    ),
   
   # Dashboard Sidebar
   dashboardSidebar(
+    width = 250,
     sidebarMenu(
-      menuItem("Performance", tabName = "performance"),
-      menuItem("Dataset", tabName = "dataset"),
-      menuItem("Failure Analysis", tabName = "analysis"),
+      menuItem("Performance", tabName = "performance", icon = icon("dashboard")),
+      menuItem("Valuation", tabName = "valuation", icon = icon("money")),
+      menuItem("Outstanding Job", tabName = "outstanding", icon = icon("exclamation")),
+      menuItem("Dataset", tabName = "dataset", icon = icon("table")),
       selectInput(
         inputId = "agency", 
         label = "Select Agency",
@@ -44,9 +48,9 @@ ui <- dashboardPage(
     tabItems(
       tabItem("performance",
         fluidRow(
-          valueBoxOutput("servicevalue"),
-          valueBoxOutput("partsvalue"),
-          valueBoxOutput("warrantyvalue")
+          valueBoxOutput("totalclosedjob"),
+          valueBoxOutput("totalclosedinternaljob"),
+          valueBoxOutput("totalclosedexternaljob")
         ),
         fluidRow(
           box(title = "Job Type Percentage",
@@ -59,14 +63,30 @@ ui <- dashboardPage(
               plotOutput("barchart"))
         )
       ),
+      tabItem("valuation",
+        fluidRow(
+          valueBoxOutput("servicevalue"),
+          valueBoxOutput("partsvalue"),
+          valueBoxOutput("warrantyvalue")
+        ),
+        fluidRow(
+          box(title = "Internal Job Valuation",
+              solidHeader = TRUE,
+              width = 6,
+              plotOutput("internalvaluation")),
+          box(title = "External Job Valuation",
+              solidHeader = TRUE,
+              width = 6,
+              plotOutput("externalvaluation"))
+        )
+      ),
+      tabItem("outstanding"),
       tabItem("dataset",
         DTOutput("table")
-      ),
-      tabItem("analysis")
+      )
     )
   )
 )
-
 server <- function(input, output, session) {
   
   mydata_filtered <- reactive({
@@ -84,11 +104,13 @@ server <- function(input, output, session) {
   
   output$barchart <- renderPlot({
     if (input$branchname != "All") {
-      mydata_filtered() %>% 
-        ggplot(aes(x = fct_infreq(JobType))) +
+      mydata_filtered() %>%
+        filter(JobStatus == "Closed") %>% 
+        ggplot(aes(x = fct_infreq(JobType), fill = JobCategory)) +
         geom_bar()
     } else {
-      mydata_filtered() %>% 
+      mydata_filtered() %>%
+        filter(JobStatus == "Closed") %>%
         ggplot(aes(x = fct_infreq(BranchName), fill = JobCategory)) +
         geom_bar()
     }
@@ -96,34 +118,105 @@ server <- function(input, output, session) {
   
   output$piechart <- renderPlot({
     mydata_filtered() %>%
+      filter(JobStatus == "Closed") %>%
       count(JobType) %>% 
       ggplot(aes(x = "", y = n, fill = JobType)) +
       geom_bar(stat = "identity") +
       coord_polar(theta = "y", start = 0)
   })
   
-  output$servicevalue <- renderValueBox({
+  output$totalclosedjob <- renderValueBox({
     valueBox(
       mydata_filtered() %>% 
+      filter(JobStatus == "Closed") %>% 
+      summarize(n()),
+    subtitle = "Total Closed Job"
+    )
+  })
+  
+  output$totalclosedinternaljob <- renderValueBox({
+    valueBox(
+      mydata_filtered() %>% 
+        filter(JobStatus == "Closed", JobCategory == "Internal Job") %>% 
+        summarize(n()),
+      subtitle = "Total Closed Internal Job"
+    )
+  })
+  
+  output$totalclosedexternaljob <- renderValueBox({
+    valueBox(
+      mydata_filtered() %>% 
+        filter(JobStatus == "Closed", JobCategory == "External Job") %>% 
+        summarize(n()),
+      subtitle = "Total Closed External Job"
+    )
+  })
+  
+  output$internalvaluation <- renderPlot({
+    if (input$branchname == "All") {
+      mydata_filtered() %>% 
+        filter(JobStatus == "Closed", JobCategory == "Internal Job") %>%
+        mutate(BranchName = as.factor(BranchName)) %>% 
+        mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
+        ggplot(aes(x = BranchName, y = TotalValue), fill = "blue") +
+        geom_col() +
+        coord_flip()
+    } else {
+      mydata_filtered() %>% 
+        filter(JobStatus == "Closed", JobCategory == "Internal Job") %>%
+        mutate(JobType = as.factor(JobType)) %>% 
+        mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
+        ggplot(aes(x = JobType, y = TotalValue), fill = "blue") +
+        geom_col() +
+        coord_flip()
+    }
+  })
+  
+  output$externalvaluation <- renderPlot({
+    if (input$branchname == "All") {
+      mydata_filtered() %>% 
+        filter(JobStatus == "Closed", JobCategory == "External Job") %>%
+        mutate(BranchName = as.factor(BranchName)) %>% 
+        mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
+        ggplot(aes(x = BranchName, y = TotalValue), fill = "red") +
+        geom_col() +
+        coord_flip()
+    } else {
+      mydata_filtered() %>% 
+        filter(JobStatus == "Closed", JobCategory == "External Job") %>%
+        mutate(JobType = as.factor(JobType)) %>% 
+        mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
+        ggplot(aes(x = JobType, y = TotalValue), fill = "red") +
+        geom_col() +
+        coord_flip()
+    }
+  })
+  
+  output$servicevalue <- renderValueBox({
+    valueBox(
+      mydata_filtered() %>%
+        filter(JobStatus == "Closed") %>%
         summarize(sum(Service)),
-      "Service Value"
+      subtitle = "Service Value"
     )
   })
   
   output$partsvalue <- renderValueBox({
     valueBox(
-      mydata_filtered() %>% 
+      mydata_filtered() %>%
+        filter(JobStatus == "Closed") %>%
         summarize(sum(Parts)),
-      "Parts Value"
+      subtitle = "Parts Value"
     )
   })
   
   output$warrantyvalue <- renderValueBox({
     valueBox(
-      mydata_filtered() %>% 
+      mydata_filtered() %>%
+        filter(JobStatus == "Closed") %>%
         filter(JobType == "IW") %>% 
         summarize(sum(TotalValue)),
-      "Warranty Value"
+      subtitle = "Warranty Value"
     )
   })
   
