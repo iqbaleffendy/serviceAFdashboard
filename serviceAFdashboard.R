@@ -173,7 +173,7 @@ server <- function(input, output, session) {
         geom_col(fill = "blue") +
         coord_flip()
     } else {
-      mydata_filtered() %>% 
+      mydata_filtered_internal() %>% 
         group_by(JobType) %>% 
         summarize(TotalValue = sum(TotalValue)) %>% 
         ungroup() %>% 
