@@ -80,13 +80,35 @@ ui <- dashboardPage(
               plotOutput("externalvaluation"))
         )
       ),
-      tabItem("outstanding"),
+      tabItem("outstanding",
+        column(width = 7,
+          box(title = "Outstanding Job",
+              solidHeader = TRUE,
+              width = NULL,
+              height = 550,
+              plotOutput("outstandingjob"))
+        ),
+        column(width = 5,
+          valueBoxOutput("outstandingjobpercentage", width = NULL),
+          valueBoxOutput("outstandingjobvalue", width = NULL),
+          box(title = "Outstanding Job Classification",
+              solidHeader = TRUE,
+              width = NULL,
+              height = 300,
+              plotOutput("outstandingjobclassification"))
+        )
+      ),
       tabItem("dataset",
-        DTOutput("table")
+        box(
+          title = "Service A&F Performance Dataset",
+          solidHeader = TRUE,
+          DTOutput("table")
+        )
       )
     )
   )
 )
+
 server <- function(input, output, session) {
   
   mydata_filtered <- reactive({
@@ -236,6 +258,53 @@ server <- function(input, output, session) {
   
   output$table <- renderDT({
     mydata_filtered()
+  })
+  
+  output$outstandingjobpercentage <- renderValueBox({
+    outstanding_percentage <- mydata_filtered() %>% 
+      group_by(JobStatus) %>% 
+      summarize(count = n()) %>% 
+      ungroup() %>% 
+      mutate(percentage = count / sum(count) * 100) %>% 
+      filter(JobStatus == "Outstanding") %>% 
+      select(percentage)
+    
+    valueBox(
+      paste(outstanding_percentage, "%"),
+      subtitle = "Outstanding Job Percentage"
+    )
+  })
+  
+  output$outstandingjobvalue <- renderValueBox({
+    valueBox(
+      mydata_filtered() %>% 
+        filter(JobStatus == "Outstanding") %>% 
+        summarize(sum(TotalValue)),
+      subtitle = "Outstanding Job Value"
+    )
+  })
+  
+  output$outstandingjob <- renderPlot({
+    if (input$branchname != "All") {
+      mydata_filtered() %>%
+        filter(JobStatus == "Outstanding") %>% 
+        ggplot(aes(x = fct_infreq(JobType), fill = JobCategory)) +
+        geom_bar()
+    } else {
+      mydata_filtered() %>%
+        filter(JobStatus == "Outstanding") %>%
+        ggplot(aes(x = fct_infreq(BranchName), fill = JobCategory)) +
+        geom_bar()
+    }
+  })
+  
+  output$outstandingjobclassification <- renderPlot({
+    mydata_filtered() %>%
+      filter(JobStatus == "Outstanding") %>%
+      count(JobType) %>% 
+      ggplot(aes(x = "", y = n, fill = JobType)) +
+      geom_bar(stat = "identity") +
+      coord_polar(theta = "y", start = 0)
   })
   
 }
