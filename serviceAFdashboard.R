@@ -152,42 +152,56 @@ server <- function(input, output, session) {
     )
   })
   
+  mydata_filtered_internal <- reactive({
+    mydata_filtered() %>% 
+      filter(JobStatus == "Closed", JobCategory == "Internal Job")
+  })
+  
+  mydata_filtered_external <- reactive({
+    mydata_filtered() %>% 
+      filter(JobStatus == "Closed", JobCategory == "External Job")
+  })
+  
   output$internalvaluation <- renderPlot({
     if (input$branchname == "All") {
-      mydata_filtered() %>% 
-        filter(JobStatus == "Closed", JobCategory == "Internal Job") %>%
-        mutate(BranchName = as.factor(BranchName)) %>% 
+      mydata_filtered_internal() %>%
+        group_by(BranchName) %>% 
+        summarize(TotalValue = sum(TotalValue)) %>% 
+        ungroup() %>% 
         mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
-        ggplot(aes(x = BranchName, y = TotalValue), fill = "blue") +
-        geom_col() +
+        ggplot(aes(x = BranchName, y = TotalValue)) +
+        geom_col(fill = "blue") +
         coord_flip()
     } else {
       mydata_filtered() %>% 
-        filter(JobStatus == "Closed", JobCategory == "Internal Job") %>%
-        mutate(JobType = as.factor(JobType)) %>% 
+        group_by(JobType) %>% 
+        summarize(TotalValue = sum(TotalValue)) %>% 
+        ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-        ggplot(aes(x = JobType, y = TotalValue), fill = "blue") +
-        geom_col() +
+        ggplot(aes(x = JobType, y = TotalValue)) +
+        geom_col(fill = "blue") +
         coord_flip()
     }
   })
   
   output$externalvaluation <- renderPlot({
     if (input$branchname == "All") {
-      mydata_filtered() %>% 
-        filter(JobStatus == "Closed", JobCategory == "External Job") %>%
-        mutate(BranchName = as.factor(BranchName)) %>% 
+      mydata_filtered_external() %>%
+        group_by(BranchName) %>% 
+        summarize(TotalValue = sum(TotalValue)) %>% 
+        ungroup() %>% 
         mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
-        ggplot(aes(x = BranchName, y = TotalValue), fill = "red") +
-        geom_col() +
+        ggplot(aes(x = BranchName, y = TotalValue)) +
+        geom_col(fill = "Red") +
         coord_flip()
     } else {
-      mydata_filtered() %>% 
-        filter(JobStatus == "Closed", JobCategory == "External Job") %>%
-        mutate(JobType = as.factor(JobType)) %>% 
+      mydata_filtered_external() %>% 
+        group_by(JobType) %>% 
+        summarize(TotalValue = sum(TotalValue)) %>% 
+        ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-        ggplot(aes(x = JobType, y = TotalValue), fill = "red") +
-        geom_col() +
+        ggplot(aes(x = JobType, y = TotalValue)) +
+        geom_col(fill = "Red") +
         coord_flip()
     }
   })
