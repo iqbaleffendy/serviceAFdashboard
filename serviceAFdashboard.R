@@ -81,29 +81,24 @@ ui <- dashboardPage(
         )
       ),
       tabItem("outstanding",
-        column(width = 7,
+        fluidRow(
+          valueBoxOutput("outstandingjobcount"),
+          valueBoxOutput("outstandingjobpercentage", width = 4),
+          valueBoxOutput("outstandingjobvalue", width = 4)
+        ),
+        fluidRow(
           box(title = "Outstanding Job",
               solidHeader = TRUE,
-              width = NULL,
-              height = 550,
-              plotOutput("outstandingjob"))
-        ),
-        column(width = 5,
-          valueBoxOutput("outstandingjobpercentage", width = NULL),
-          valueBoxOutput("outstandingjobvalue", width = NULL),
+              width = 7,
+              plotOutput("outstandingjob")),
           box(title = "Outstanding Job Classification",
               solidHeader = TRUE,
-              width = NULL,
-              height = 300,
+              width = 5,
               plotOutput("outstandingjobclassification"))
         )
       ),
       tabItem("dataset",
-        box(
-          title = "Service A&F Performance Dataset",
-          solidHeader = TRUE,
-          DTOutput("table")
-        )
+        DTOutput("table")
       )
     )
   )
@@ -257,7 +252,18 @@ server <- function(input, output, session) {
   })
   
   output$table <- renderDT({
-    mydata_filtered()
+    mydata_filtered() %>% 
+      transmute(JobNo, OpenDate = as.Date(OpenDate), CloseDate = as.Date(CloseDate), 
+                JobStatus, Customer, JobDesc, TotalValue)
+  })
+  
+  output$outstandingjobcount <- renderValueBox({
+    valueBox(
+      mydata_filtered() %>% 
+        filter(JobStatus == "Outstanding") %>% 
+        summarize(n()),
+      subtitle = "Total Outstanding Job"
+    )
   })
   
   output$outstandingjobpercentage <- renderValueBox({
@@ -301,8 +307,8 @@ server <- function(input, output, session) {
   output$outstandingjobclassification <- renderPlot({
     mydata_filtered() %>%
       filter(JobStatus == "Outstanding") %>%
-      count(JobType) %>% 
-      ggplot(aes(x = "", y = n, fill = JobType)) +
+      count(OutstandingJobClass) %>% 
+      ggplot(aes(x = "", y = n, fill = OutstandingJobClass)) +
       geom_bar(stat = "identity") +
       coord_polar(theta = "y", start = 0)
   })
