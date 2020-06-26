@@ -1,15 +1,14 @@
 library(shiny)
 library(shinydashboard)
-library(shinyWidgets)
 library(readxl)
+library(writexl)
 library(tidyverse)
 library(ggplot2)
 library(DT)
-library(plotly)
+library(formattable)
 
 
 # Load Dataset
-
 mydata <- read_excel("serviceperformance.xlsx")
 
 ui <- dashboardPage(
@@ -98,7 +97,8 @@ ui <- dashboardPage(
         )
       ),
       tabItem("dataset",
-        DTOutput("table")
+        DTOutput("table"),
+        downloadButton("download", "Download XLSX")
       )
     )
   )
@@ -224,29 +224,34 @@ server <- function(input, output, session) {
   })
   
   output$servicevalue <- renderValueBox({
+    servicevalue <- mydata_filtered() %>%
+      filter(JobStatus == "Closed") %>%
+      summarize(sum(Service))
+    
     valueBox(
-      mydata_filtered() %>%
-        filter(JobStatus == "Closed") %>%
-        summarize(sum(Service)),
+      paste("Rp", accounting(servicevalue, digits = 0L)),
       subtitle = "Service Value"
     )
   })
   
   output$partsvalue <- renderValueBox({
+    partsvalue <- mydata_filtered() %>%
+      filter(JobStatus == "Closed") %>%
+      summarize(sum(Parts))
+    
     valueBox(
-      mydata_filtered() %>%
-        filter(JobStatus == "Closed") %>%
-        summarize(sum(Parts)),
+      paste("Rp", accounting(partsvalue, digits = 0L)),
       subtitle = "Parts Value"
     )
   })
   
   output$warrantyvalue <- renderValueBox({
+    warrantyvalue <- mydata_filtered() %>%
+      filter(JobStatus == "Closed", JobType == "IW") %>%
+      summarize(sum(TotalValue))
+    
     valueBox(
-      mydata_filtered() %>%
-        filter(JobStatus == "Closed") %>%
-        filter(JobType == "IW") %>% 
-        summarize(sum(TotalValue)),
+      paste("Rp", accounting(warrantyvalue, digits = 0L)),
       subtitle = "Warranty Value"
     )
   })
@@ -276,16 +281,18 @@ server <- function(input, output, session) {
       select(percentage)
     
     valueBox(
-      paste(outstanding_percentage, "%"),
+      paste(round(outstanding_percentage, digits = 0), "%"),
       subtitle = "Outstanding Job Percentage"
     )
   })
   
   output$outstandingjobvalue <- renderValueBox({
+    outstandingvalue <- mydata_filtered() %>% 
+      filter(JobStatus == "Outstanding") %>% 
+      summarize(sum(TotalValue))
+    
     valueBox(
-      mydata_filtered() %>% 
-        filter(JobStatus == "Outstanding") %>% 
-        summarize(sum(TotalValue)),
+      paste("Rp", accounting(outstandingvalue, digits = 0L)),
       subtitle = "Outstanding Job Value"
     )
   })
@@ -312,6 +319,15 @@ server <- function(input, output, session) {
       geom_bar(stat = "identity") +
       coord_polar(theta = "y", start = 0)
   })
+  
+  output$download <- downloadHandler(
+    filename = function(){
+      paste("serviceA&Fperformance-", Sys.Date(), ".xlsx", sep = "")
+    },
+    content = function(file){
+      write_xlsx(mydata_filtered(), file)
+    }
+  )
   
 }
 
