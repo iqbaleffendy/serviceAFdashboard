@@ -280,7 +280,7 @@ server <- function(input, output, session) {
         summarize(TotalValue = sum(TotalValue)) %>% 
         ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-        plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
+        plot_ly(x = ~TotalValue, y = ~JobType) %>% 
         add_bars(color = I("blue")) %>% 
         layout(
           xaxis = list(title = ""),
@@ -307,7 +307,7 @@ server <- function(input, output, session) {
         summarize(TotalValue = sum(TotalValue)) %>% 
         ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-        plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
+        plot_ly(x = ~TotalValue, y = ~JobType) %>% 
         add_bars(color = I("red")) %>% 
         layout(
           xaxis = list(title = ""),
