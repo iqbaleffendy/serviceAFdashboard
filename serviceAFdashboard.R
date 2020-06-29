@@ -5,28 +5,35 @@ library(writexl)
 library(tidyverse)
 library(ggplot2)
 library(DT)
+library(plotly)
 library(formattable)
 
 
 # Load Dataset
 mydata <- read_excel("serviceperformance.xlsx")
+mydata$OpenDate <- as.Date(mydata$OpenDate)
+mydata$CloseDate <- as.Date(mydata$CloseDate)
+
+failuredata <- read_excel("techreportsummary.xlsx")
+failuredata$`OPEN DATE` <- as.Date(failuredata$`OPEN DATE`)
 
 ui <- dashboardPage(
-
-  # Dashboard Header
+  
+  # Dashboard Header----
   dashboardHeader(
     title = "Service A&F Dashboard",
     titleWidth = 250
     ),
   
-  # Dashboard Sidebar
+  # Dashboard Sidebar----
   dashboardSidebar(
     width = 250,
     sidebarMenu(
       menuItem("Performance", tabName = "performance", icon = icon("dashboard")),
-      menuItem("Valuation", tabName = "valuation", icon = icon("money")),
+      menuItem("Valuation", tabName = "valuation", icon = icon("credit-card")),
       menuItem("Outstanding Job", tabName = "outstanding", icon = icon("exclamation")),
       menuItem("Dataset", tabName = "dataset", icon = icon("table")),
+      menuItem("Failure Analysis", tabName = "failure", icon = icon("list")),
       selectInput(
         inputId = "agency", 
         label = "Select Agency",
@@ -38,28 +45,38 @@ ui <- dashboardPage(
         label = "Select Branch",
         choices = c("All", unique(mydata$BranchName)),
         selected = "All"
+      ),
+      dateRangeInput(
+        inputId = "dates",
+        label = "Select Date",
+        start = min(mydata$OpenDate),
+        end = max(mydata$OpenDate),
+        min = min(mydata$OpenDate),
+        max = max(mydata$OpenDate)
       )
     )
   ),
   
-  # Dashboard Body
+  # Dashboard Body----
   dashboardBody(
     tabItems(
       tabItem("performance",
         fluidRow(
-          valueBoxOutput("totalclosedjob"),
-          valueBoxOutput("totalclosedinternaljob"),
-          valueBoxOutput("totalclosedexternaljob")
+          infoBoxOutput("totalclosedjob"),
+          infoBoxOutput("totalclosedinternaljob"),
+          infoBoxOutput("totalclosedexternaljob")
         ),
         fluidRow(
           box(title = "Job Type Percentage",
               solidHeader = TRUE,
               width = 4,
-              plotOutput("piechart")),
+              status = "primary",
+              plotlyOutput("piechart")),
           box(title = "Service Performance",
               solidHeader = TRUE,
               width = 8,
-              plotOutput("barchart"))
+              status = "primary",
+              plotlyOutput("barchart"))
         )
       ),
       tabItem("valuation",
@@ -72,33 +89,51 @@ ui <- dashboardPage(
           box(title = "Internal Job Valuation",
               solidHeader = TRUE,
               width = 6,
-              plotOutput("internalvaluation")),
+              status = "primary",
+              plotlyOutput("internalvaluation")),
           box(title = "External Job Valuation",
               solidHeader = TRUE,
               width = 6,
-              plotOutput("externalvaluation"))
+              status = "primary",
+              plotlyOutput("externalvaluation"))
         )
       ),
       tabItem("outstanding",
         fluidRow(
           valueBoxOutput("outstandingjobcount"),
-          valueBoxOutput("outstandingjobpercentage", width = 4),
-          valueBoxOutput("outstandingjobvalue", width = 4)
+          valueBoxOutput("outstandingjobpercentage"),
+          valueBoxOutput("outstandingjobvalue")
         ),
         fluidRow(
           box(title = "Outstanding Job",
               solidHeader = TRUE,
               width = 7,
-              plotOutput("outstandingjob")),
+              status = "danger",
+              plotlyOutput("outstandingjob")),
           box(title = "Outstanding Job Classification",
               solidHeader = TRUE,
               width = 5,
-              plotOutput("outstandingjobclassification"))
+              status = "danger",
+              plotlyOutput("outstandingjobclassification"))
         )
       ),
       tabItem("dataset",
         DTOutput("table"),
         downloadButton("download", "Download XLSX")
+      ),
+      tabItem("failure",
+        fluidRow(
+          infoBoxOutput("failurecount"),
+          infoBoxOutput("reported")
+        ),
+        fluidRow(
+          box(title = "Failure Analysis by Model",
+              width = 12,
+              height = 480,
+              status = "primary",
+              solidHeader = TRUE,
+              plotlyOutput("failurecategory"))
+        )
       )
     )
   )
@@ -106,6 +141,7 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
   
+  # Reactive expression to subset data based on user input----
   mydata_filtered <- reactive({
     if (input$agency != "All") {
       mydata <- mydata %>% 
@@ -116,59 +152,105 @@ server <- function(input, output, session) {
       mydata <- mydata %>% 
         filter(BranchName == input$branchname)
     }
+    
+    mydata <- mydata %>% 
+      filter(OpenDate >= input$dates[1] & OpenDate <= input$dates[2])
+
     mydata
   })
   
-  output$barchart <- renderPlot({
+  failuredata_filtered <- reactive({
+    failuredata %>% 
+      filter(`OPEN DATE` >= input$dates[1] & `OPEN DATE` <= input$dates[2])
+  })
+  
+  #Output Barchart----
+  output$barchart <- renderPlotly({
     if (input$branchname != "All") {
       mydata_filtered() %>%
-        filter(JobStatus == "Closed") %>% 
-        ggplot(aes(x = fct_infreq(JobType), fill = JobCategory)) +
-        geom_bar()
+        filter(JobStatus == "Closed") %>%
+        count(JobType, JobCategory) %>%
+        group_by(JobType) %>% 
+        mutate(Total = sum(n)) %>% 
+        ungroup() %>% 
+        mutate(JobType = fct_reorder(JobType, Total, .desc = TRUE)) %>% 
+        plot_ly(x = ~JobType, y = ~n, color = ~JobCategory) %>% 
+        add_bars() %>% 
+        layout(
+          barmode = "stack",
+          legend = list(orientation = "h"),
+          xaxis = list(title = "", tickangle = -45),
+          yaxis = list(title = ""))
     } else {
       mydata_filtered() %>%
         filter(JobStatus == "Closed") %>%
-        ggplot(aes(x = fct_infreq(BranchName), fill = JobCategory)) +
-        geom_bar()
+        count(BranchName, JobCategory) %>%
+        group_by(BranchName) %>% 
+        mutate(Total = sum(n)) %>% 
+        ungroup() %>%
+        mutate(BranchName = fct_reorder(BranchName, Total, .desc = TRUE)) %>% 
+        plot_ly(x = ~BranchName, y = ~n, color = ~JobCategory) %>% 
+        add_bars() %>% 
+        layout(
+          barmode = "stack",
+          legend = list(orientation = "h"),
+          xaxis = list(title = "", tickangle = -45),
+          yaxis = list(title = ""))
     }
   })
   
-  output$piechart <- renderPlot({
+  # Output Piechart----
+  output$piechart <- renderPlotly({
     mydata_filtered() %>%
       filter(JobStatus == "Closed") %>%
       count(JobType) %>% 
-      ggplot(aes(x = "", y = n, fill = JobType)) +
-      geom_bar(stat = "identity") +
-      coord_polar(theta = "y", start = 0)
+      plot_ly(labels = ~JobType, values = ~n, type = "pie", 
+              textposition = "inside",
+              textinfo = "label+percent",
+              marker = list(
+                line = list(color = "#FFFFFF", width = 1),
+                showlegend = FALSE)
+              ) %>% 
+      layout(legend = list(orientation = "h"))
   })
   
-  output$totalclosedjob <- renderValueBox({
-    valueBox(
+  # Output Total Closed Job----
+  output$totalclosedjob <- renderInfoBox({
+    infoBox(
+      "Total Closed Job",
       mydata_filtered() %>% 
-      filter(JobStatus == "Closed") %>% 
-      summarize(n()),
-    subtitle = "Total Closed Job"
+        filter(JobStatus == "Closed") %>% 
+        summarize(n()),
+      icon = icon("list"),
+      color = "blue"
     )
   })
   
-  output$totalclosedinternaljob <- renderValueBox({
-    valueBox(
+  # Output Total Closed Internal Job----
+  output$totalclosedinternaljob <- renderInfoBox({
+    infoBox(
+      "Total Closed Internal Job",
       mydata_filtered() %>% 
         filter(JobStatus == "Closed", JobCategory == "Internal Job") %>% 
         summarize(n()),
-      subtitle = "Total Closed Internal Job"
+      icon = icon("list"),
+      color = "light-blue"
     )
   })
   
-  output$totalclosedexternaljob <- renderValueBox({
-    valueBox(
+  # Output Total Closed External Job----
+  output$totalclosedexternaljob <- renderInfoBox({
+    infoBox(
+      "Total Closed External Job",
       mydata_filtered() %>% 
         filter(JobStatus == "Closed", JobCategory == "External Job") %>% 
         summarize(n()),
-      subtitle = "Total Closed External Job"
+      icon = icon("list"),
+      color = "red"
     )
   })
   
+  # Reactive Expression to filter data by Job Category----
   mydata_filtered_internal <- reactive({
     mydata_filtered() %>% 
       filter(JobStatus == "Closed", JobCategory == "Internal Job")
@@ -179,50 +261,61 @@ server <- function(input, output, session) {
       filter(JobStatus == "Closed", JobCategory == "External Job")
   })
   
-  output$internalvaluation <- renderPlot({
+  # Output Internal Valuation----
+  output$internalvaluation <- renderPlotly({
     if (input$branchname == "All") {
       mydata_filtered_internal() %>%
         group_by(BranchName) %>% 
         summarize(TotalValue = sum(TotalValue)) %>% 
         ungroup() %>% 
         mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
-        ggplot(aes(x = BranchName, y = TotalValue)) +
-        geom_col(fill = "blue") +
-        coord_flip()
+        plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
+        add_bars(color = I("blue")) %>% 
+        layout(
+          xaxis = list(title = ""),
+          yaxis = list(title = ""))
     } else {
       mydata_filtered_internal() %>% 
         group_by(JobType) %>% 
         summarize(TotalValue = sum(TotalValue)) %>% 
         ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-        ggplot(aes(x = JobType, y = TotalValue)) +
-        geom_col(fill = "blue") +
-        coord_flip()
+        plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
+        add_bars(color = I("blue")) %>% 
+        layout(
+          xaxis = list(title = ""),
+          yaxis = list(title = ""))
     }
   })
   
-  output$externalvaluation <- renderPlot({
+  # Output External Valuation----
+  output$externalvaluation <- renderPlotly({
     if (input$branchname == "All") {
       mydata_filtered_external() %>%
         group_by(BranchName) %>% 
         summarize(TotalValue = sum(TotalValue)) %>% 
         ungroup() %>% 
         mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
-        ggplot(aes(x = BranchName, y = TotalValue)) +
-        geom_col(fill = "Red") +
-        coord_flip()
+        plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
+        add_bars(color = I("red")) %>% 
+        layout(
+          xaxis = list(title = ""),
+          yaxis = list(title = ""))
     } else {
       mydata_filtered_external() %>% 
         group_by(JobType) %>% 
         summarize(TotalValue = sum(TotalValue)) %>% 
         ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-        ggplot(aes(x = JobType, y = TotalValue)) +
-        geom_col(fill = "Red") +
-        coord_flip()
+        plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
+        add_bars(color = I("red")) %>% 
+        layout(
+          xaxis = list(title = ""),
+          yaxis = list(title = ""))
     }
   })
   
+  # Output Service Value----
   output$servicevalue <- renderValueBox({
     servicevalue <- mydata_filtered() %>%
       filter(JobStatus == "Closed") %>%
@@ -230,10 +323,13 @@ server <- function(input, output, session) {
     
     valueBox(
       paste("Rp", accounting(servicevalue, digits = 0L)),
-      subtitle = "Service Value"
+      subtitle = "Service Value",
+      color = "blue",
+      icon = icon("money")
     )
   })
   
+  # Output Parts Value----
   output$partsvalue <- renderValueBox({
     partsvalue <- mydata_filtered() %>%
       filter(JobStatus == "Closed") %>%
@@ -241,10 +337,13 @@ server <- function(input, output, session) {
     
     valueBox(
       paste("Rp", accounting(partsvalue, digits = 0L)),
-      subtitle = "Parts Value"
+      subtitle = "Parts Value",
+      color = "blue",
+      icon = icon("money")
     )
   })
   
+  #Output Warranty Value----
   output$warrantyvalue <- renderValueBox({
     warrantyvalue <- mydata_filtered() %>%
       filter(JobStatus == "Closed", JobType == "IW") %>%
@@ -252,25 +351,32 @@ server <- function(input, output, session) {
     
     valueBox(
       paste("Rp", accounting(warrantyvalue, digits = 0L)),
-      subtitle = "Warranty Value"
+      subtitle = "Warranty Value",
+      color = "blue",
+      icon = icon("money")
     )
   })
   
+  #Output DT Table----
   output$table <- renderDT({
     mydata_filtered() %>% 
       transmute(JobNo, OpenDate = as.Date(OpenDate), CloseDate = as.Date(CloseDate), 
                 JobStatus, Customer, JobDesc, TotalValue)
   })
   
+  #Output Outstanding Job Count----
   output$outstandingjobcount <- renderValueBox({
     valueBox(
       mydata_filtered() %>% 
         filter(JobStatus == "Outstanding") %>% 
         summarize(n()),
-      subtitle = "Total Outstanding Job"
+      subtitle = "Total Outstanding Job",
+      color = "red",
+      icon = icon("list")
     )
   })
   
+  #Output Outstanding Job Percentage----
   output$outstandingjobpercentage <- renderValueBox({
     outstanding_percentage <- mydata_filtered() %>% 
       group_by(JobStatus) %>% 
@@ -282,10 +388,13 @@ server <- function(input, output, session) {
     
     valueBox(
       paste(round(outstanding_percentage, digits = 0), "%"),
-      subtitle = "Outstanding Job Percentage"
+      subtitle = "Outstanding Job Percentage",
+      color = "red",
+      icon = icon("exclamation")
     )
   })
   
+  #Output Outstanding Job Value----
   output$outstandingjobvalue <- renderValueBox({
     outstandingvalue <- mydata_filtered() %>% 
       filter(JobStatus == "Outstanding") %>% 
@@ -293,31 +402,60 @@ server <- function(input, output, session) {
     
     valueBox(
       paste("Rp", accounting(outstandingvalue, digits = 0L)),
-      subtitle = "Outstanding Job Value"
+      subtitle = "Outstanding Job Value",
+      color = "red",
+      icon = icon("credit-card")
     )
   })
   
-  output$outstandingjob <- renderPlot({
+  #Output Outstanding Job Chart----
+  output$outstandingjob <- renderPlotly({
     if (input$branchname != "All") {
       mydata_filtered() %>%
         filter(JobStatus == "Outstanding") %>% 
-        ggplot(aes(x = fct_infreq(JobType), fill = JobCategory)) +
-        geom_bar()
+        count(JobType, JobCategory) %>%
+        group_by(JobType) %>% 
+        mutate(Total = sum(n)) %>% 
+        ungroup() %>% 
+        mutate(JobType = fct_reorder(JobType, Total, .desc = TRUE)) %>% 
+        plot_ly(x = ~JobType, y = ~n, color = ~JobCategory) %>% 
+        add_bars() %>% 
+        layout(
+          barmode = "stack",
+          legend = list(orientation = "h"),
+          xaxis = list(title = "", tickangle = -45),
+          yaxis = list(title = ""))
     } else {
       mydata_filtered() %>%
         filter(JobStatus == "Outstanding") %>%
-        ggplot(aes(x = fct_infreq(BranchName), fill = JobCategory)) +
-        geom_bar()
+        count(BranchName, JobCategory) %>%
+        group_by(BranchName) %>% 
+        mutate(Total = sum(n)) %>% 
+        ungroup() %>%
+        mutate(BranchName = fct_reorder(BranchName, Total, .desc = TRUE)) %>% 
+        plot_ly(x = ~BranchName, y = ~n, color = ~JobCategory) %>% 
+        add_bars() %>% 
+        layout(
+          barmode = "stack",
+          legend = list(orientation = "h"),
+          xaxis = list(title = "", tickangle = -45),
+          yaxis = list(title = ""))
     }
   })
   
-  output$outstandingjobclassification <- renderPlot({
+  #Output Outstanding Job Classification----
+  output$outstandingjobclassification <- renderPlotly({
     mydata_filtered() %>%
       filter(JobStatus == "Outstanding") %>%
       count(OutstandingJobClass) %>% 
-      ggplot(aes(x = "", y = n, fill = OutstandingJobClass)) +
-      geom_bar(stat = "identity") +
-      coord_polar(theta = "y", start = 0)
+      plot_ly(labels = ~OutstandingJobClass, values = ~n, type = "pie", 
+              textposition = "inside",
+              textinfo = "label+percent",
+              marker = list(
+                line = list(color = "#FFFFFF", width = 1),
+                showlegend = FALSE)
+      ) %>% 
+      layout(legend = list(orientation = "h"))
   })
   
   output$download <- downloadHandler(
@@ -328,6 +466,56 @@ server <- function(input, output, session) {
       write_xlsx(mydata_filtered(), file)
     }
   )
+  
+  # Failure Chart----
+  output$failurecategory <- renderPlotly({
+    failuredata_filtered() %>% 
+      filter(`JOB STATUS` == "CLOSED") %>% 
+      count(`UNIT MODEL`, GROUP) %>%
+      group_by(`UNIT MODEL`) %>% 
+      mutate(Total = sum(n)) %>% 
+      ungroup() %>%
+      mutate(`UNIT MODEL` = fct_reorder(`UNIT MODEL`, Total)) %>% 
+      plot_ly(x = ~n, y = ~`UNIT MODEL`, color = ~GROUP) %>% 
+      add_bars() %>% 
+      layout(
+        barmode = "stack",
+        xaxis = list(title = "Failure Count"),
+        yaxis = list(title = ""))
+  })
+  
+  # Failure Count----
+  output$failurecount <- renderInfoBox({
+    failurecount <- failuredata_filtered() %>% 
+      filter(`JOB STATUS` == "CLOSED") %>% 
+      summarize(n())
+    
+    infoBox(
+      title = "Failure Count",
+      value = failurecount,
+      icon = icon("list"),
+      color = "blue"
+    )
+  })
+  
+  # Report Percentage----
+  output$reported <- renderInfoBox({
+    reported <- failuredata_filtered() %>% 
+      filter(`JOB STATUS` == "CLOSED") %>% 
+      group_by(REPORTED) %>% 
+      summarize(count = n()) %>% 
+      ungroup() %>% 
+      mutate(percentage = count / sum(count) * 100) %>% 
+      filter(REPORTED == "REPORTED") %>% 
+      select(percentage)
+    
+    infoBox(
+      title = "Technical Help Desk Reported",
+      value = paste(round(reported, digits = 1), "%"),
+      icon = icon("list"),
+      color = "blue"
+    )
+  })
   
 }
 
