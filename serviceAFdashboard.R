@@ -6,6 +6,7 @@ library(tidyverse)
 library(ggplot2)
 library(DT)
 library(plotly)
+library(leaflet)
 library(formattable)
 
 
@@ -16,6 +17,8 @@ mydata$CloseDate <- as.Date(mydata$CloseDate)
 
 failuredata <- read_excel("techreportsummary.xlsx")
 failuredata$`OPEN DATE` <- as.Date(failuredata$`OPEN DATE`)
+
+branchlocation <- read_excel("branchlocation.xlsx")
 
 ui <- dashboardPage(
   
@@ -34,6 +37,7 @@ ui <- dashboardPage(
       menuItem("Outstanding Job", tabName = "outstanding", icon = icon("exclamation")),
       menuItem("Dataset", tabName = "dataset", icon = icon("table")),
       menuItem("Failure Analysis", tabName = "failure", icon = icon("list")),
+      menuItem("Unit Population", tabName = "population", icon = icon("globe")),
       selectInput(
         inputId = "agency", 
         label = "Select Agency",
@@ -134,6 +138,9 @@ ui <- dashboardPage(
               solidHeader = TRUE,
               plotlyOutput("failurecategory"))
         )
+      ),
+      tabItem("population",
+        leafletOutput("population", height = "600px", width = "100%")
       )
     )
   )
@@ -162,6 +169,19 @@ server <- function(input, output, session) {
   failuredata_filtered <- reactive({
     failuredata %>% 
       filter(`OPEN DATE` >= input$dates[1] & `OPEN DATE` <= input$dates[2])
+  })
+  
+  # Reactive Expression to Load Maps with Markers----
+  populationmap <- reactive({
+    leaflet(options = leafletOptions(minZoom = 5)) %>% 
+      addTiles() %>% 
+      setMaxBounds(lng1 = 94.510561, lat1 = 7.169720, lng2 = 140.952527, lat2 = -10.585397) %>% 
+      addMarkers(
+        lng = branchlocation$lon, 
+        lat = branchlocation$lat, 
+        layerId = branchlocation$BranchName,
+        label = branchlocation$BranchName
+      )
   })
   
   #Output Barchart----
@@ -515,6 +535,11 @@ server <- function(input, output, session) {
       icon = icon("list"),
       color = "blue"
     )
+  })
+  
+  # Create Unit Population Maps----
+  output$population <- renderLeaflet({
+    populationmap()
   })
   
 }
