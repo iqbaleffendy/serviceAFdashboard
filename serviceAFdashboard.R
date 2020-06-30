@@ -85,6 +85,7 @@ ui <- dashboardPage(
           box(title = "Service Performance",
               solidHeader = TRUE,
               width = 8,
+              align = "center",
               status = "primary",
               plotlyOutput("barchart"))
         )
@@ -198,8 +199,7 @@ server <- function(input, output, session) {
         mutate(Total = sum(n)) %>% 
         ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, Total, .desc = TRUE)) %>% 
-        plot_ly(x = ~JobType, y = ~n, color = ~JobCategory) %>% 
-        add_bars() %>% 
+        plot_ly(x = ~JobType, y = ~n, type = "bar", color = ~JobCategory) %>% 
         layout(
           barmode = "stack",
           legend = list(orientation = "h"),
@@ -213,8 +213,7 @@ server <- function(input, output, session) {
         mutate(Total = sum(n)) %>% 
         ungroup() %>%
         mutate(BranchName = fct_reorder(BranchName, Total, .desc = TRUE)) %>% 
-        plot_ly(x = ~BranchName, y = ~n, color = ~JobCategory) %>% 
-        add_bars() %>% 
+        plot_ly(x = ~BranchName, y = ~n, type = "bar", color = ~JobCategory) %>% 
         layout(
           barmode = "stack",
           legend = list(orientation = "h"),
@@ -294,7 +293,7 @@ server <- function(input, output, session) {
         ungroup() %>% 
         mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
         plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
-        add_bars(color = I("blue")) %>% 
+        add_bars(color = I("#0e1854")) %>% 
         layout(
           xaxis = list(title = ""),
           yaxis = list(title = ""))
@@ -305,7 +304,7 @@ server <- function(input, output, session) {
         ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
         plot_ly(x = ~TotalValue, y = ~JobType) %>% 
-        add_bars(color = I("blue")) %>% 
+        add_bars(color = I("#0e1854")) %>% 
         layout(
           xaxis = list(title = ""),
           yaxis = list(title = ""))
@@ -321,7 +320,7 @@ server <- function(input, output, session) {
         ungroup() %>% 
         mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
         plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
-        add_bars(color = I("red")) %>% 
+        add_bars(color = I("#610f0f")) %>% 
         layout(
           xaxis = list(title = ""),
           yaxis = list(title = ""))
@@ -332,7 +331,7 @@ server <- function(input, output, session) {
         ungroup() %>% 
         mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
         plot_ly(x = ~TotalValue, y = ~JobType) %>% 
-        add_bars(color = I("red")) %>% 
+        add_bars(color = I("#610f0f")) %>% 
         layout(
           xaxis = list(title = ""),
           yaxis = list(title = ""))
