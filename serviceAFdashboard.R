@@ -5,21 +5,27 @@ library(writexl)
 library(tidyverse)
 library(ggplot2)
 library(DT)
+library(data.table)
 library(plotly)
 library(leaflet)
 library(formattable)
 
 
-# Load Dataset
-mydata <- read_excel("serviceperformance.xlsx")
-mydata$OpenDate <- as.Date(mydata$OpenDate)
-mydata$CloseDate <- as.Date(mydata$CloseDate)
+# Load Dataset----
+mydata <- read_excel("import_data/serviceperformance.xlsx")
+  mydata$OpenDate <- as.Date(mydata$OpenDate)
+  mydata$CloseDate <- as.Date(mydata$CloseDate)
 
-failuredata <- read_excel("techreportsummary.xlsx")
-failuredata$`OPEN DATE` <- as.Date(failuredata$`OPEN DATE`)
+failuredata <- read_excel("import_data/techreportsummary.xlsx")
+  failuredata$`OPEN DATE` <- as.Date(failuredata$`OPEN DATE`)
 
-branchlocation <- read_excel("branchlocation.xlsx")
+branchlocation <- read_excel("import_data/branchlocation.xlsx")
 
+datapopulasi <- fread("import_data/datapopulasi.csv")
+
+popdata <- read_excel("import_data/popdata.xlsx")
+
+# User Interface----
 ui <- dashboardPage(
   
   # Dashboard Header----
@@ -140,7 +146,18 @@ ui <- dashboardPage(
         )
       ),
       tabItem("population",
-        leafletOutput("population", height = "600px", width = "100%")
+        column(width = 9,
+          leafletOutput("population", height = "600px")
+        ),
+        column(width = 3,
+          box(title = "Population by Series",
+              width = NULL,
+              solidHeader = TRUE,
+              status = "primary",
+              align = "center",
+              tableOutput("populationdata")
+          )
+        )
       )
     )
   )
@@ -169,19 +186,6 @@ server <- function(input, output, session) {
   failuredata_filtered <- reactive({
     failuredata %>% 
       filter(`OPEN DATE` >= input$dates[1] & `OPEN DATE` <= input$dates[2])
-  })
-  
-  # Reactive Expression to Load Maps with Markers----
-  populationmap <- reactive({
-    leaflet(options = leafletOptions(minZoom = 5)) %>% 
-      addTiles() %>% 
-      setMaxBounds(lng1 = 94.510561, lat1 = 7.169720, lng2 = 140.952527, lat2 = -10.585397) %>% 
-      addMarkers(
-        lng = branchlocation$lon, 
-        lat = branchlocation$lat, 
-        layerId = branchlocation$BranchName,
-        label = branchlocation$BranchName
-      )
   })
   
   #Output Barchart----
@@ -537,9 +541,39 @@ server <- function(input, output, session) {
     )
   })
   
+  # Reactive Expression to Load Maps with Markers----
+  populationmap <- reactive({
+    leaflet(options = leafletOptions(minZoom = 5)) %>% 
+      addTiles() %>% 
+      setMaxBounds(lng1 = 94.510561, lat1 = 7.169720, lng2 = 140.952527, lat2 = -10.585397) %>% 
+      addCircleMarkers(
+        lng = branchlocation$lon, 
+        lat = branchlocation$lat, 
+        layerId = branchlocation$BranchName,
+        label = branchlocation$BranchName
+      )
+  })
+  
   # Create Unit Population Maps----
   output$population <- renderLeaflet({
     populationmap()
+  })
+  
+  data_click <- reactiveValues(clickedMarker = NULL)
+  observeEvent(input$population_marker_click, {
+    data_click$clickedMarker <- input$population_marker_click
+  })
+  
+  output$populationdata <- renderTable({
+    if (is.null(data_click$clickedMarker)) {
+      return(NULL)
+    }
+    return(
+      popdata %>% 
+        filter(`BRANCH ASS` == data_click$clickedMarker$id) %>% 
+        select(`SERIES`, `COUNT` = n) %>%
+        arrange(desc(`COUNT`))
+    )
   })
   
 }
