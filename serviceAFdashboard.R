@@ -18,7 +18,6 @@ mydata <- read_excel("import_data/serviceperformance.xlsx")
 failuredata <- read_excel("import_data/techreportsummary.xlsx")
   failuredata$OpenDate <- as.Date(failuredata$OpenDate)
   
-branchlocation <- read_excel("import_data/branchlocation.xlsx")
 branchcode <- read_excel("import_data/branchcode.xlsx")
   branchcode$BranchCode <- as.character(branchcode$BranchCode)
   
@@ -596,11 +595,11 @@ server <- function(input, output, session) {
       addTiles() %>% 
       setMaxBounds(lng1 = 94.510561, lat1 = 7.169720, lng2 = 140.952527, lat2 = -10.585397) %>% 
       addCircleMarkers(
-        lng = branchlocation$lon, 
-        lat = branchlocation$lat, 
-        layerId = branchlocation$BranchName,
-        label = branchlocation$BranchName,
-        labelOptions = labelOptions(textsize = "15px")
+        lng = branchcode$lon, 
+        lat = branchcode$lat, 
+        layerId = branchcode$Branch,
+        label = branchcode$Branch,
+        labelOptions = labelOptions(textsize = "12px")
       )
   })
   
