@@ -145,18 +145,19 @@ ui <- dashboardPage(
           tabPanel(
             "Population Map",
             column(
-              width = 9,
+              width = 8,
               leafletOutput("population", height = "500px")
             ),
             column(
-              width = 3,
+              width = 4,
               box(
-                title = "Population by Series",
+                title = "Population by Model",
                 width = NULL,
                 solidHeader = TRUE,
                 status = "primary",
                 align = "center",
-                tableOutput("populationdata")
+                DTOutput("populationdata"),
+                style = "height:450px; overflow-y: scroll"
               )
             )
           ),
@@ -616,7 +617,7 @@ server <- function(input, output, session) {
   # Population Table and Summary----
   summarypopulation <- populationdata %>% 
     mutate(`BRANCH ASS` = str_to_upper(`BRANCH ASS`)) %>% 
-    group_by(`BRANCH ASS`, `SERIES`) %>% 
+    group_by(`BRANCH ASS`, `MODEL`) %>% 
     count() %>% 
     ungroup()
   
@@ -633,22 +634,24 @@ server <- function(input, output, session) {
   })
   
   # Output Population Table based on Clicked Marker----  
-  output$populationdata <- renderTable({
+  output$populationdata <- renderDT({
     if (is.null(data_click$clickedMarker)) {
       return(NULL)
     }
-    return(
+    datatable(
       summarypopulation %>% 
         filter(`BRANCH ASS` == data_click$clickedMarker$id) %>% 
-        select(`SERIES`, `COUNT` = n) %>%
-        arrange(desc(`COUNT`))
+        select(`MODEL`, `COUNT` = n) %>%
+        arrange(desc(`COUNT`)),
+      options = list(
+        paging = FALSE
+      )
     )
   })
   
   # Output Population Dataset----
   output$populationtable <- renderDT({
-    populationtable_filtered() %>% 
-      select(1:8)
+    populationtable_filtered() %>% select(1:8)
   })
   
 }
