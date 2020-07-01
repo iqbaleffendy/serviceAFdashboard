@@ -127,17 +127,29 @@ ui <- dashboardPage(
         )
       ),
       tabItem("failure",
-        fluidRow(
-          valueBoxOutput("failurecount"),
-          valueBoxOutput("reported")
-        ),
-        fluidRow(
-          box(title = "Failure Analysis by Model",
-              width = 12,
-              height = 480,
-              status = "primary",
-              solidHeader = TRUE,
-              plotlyOutput("failurecategory"))
+        tabsetPanel(
+          tabPanel(
+            "Failure Analysis Chart",
+            column(
+              width = 8,
+              box(title = "Failure Analysis by Model",
+                  width = NULL,
+                  height = 500,
+                  status = "primary",
+                  solidHeader = FALSE,
+                  plotlyOutput("failurecategory"))
+            ),
+            column(
+              width = 4,
+              valueBoxOutput("failurecount", width = NULL),
+              valueBoxOutput("reported", width = NULL)
+            )
+          ),
+          tabPanel(
+            "Failure Analysis Dataset",
+            DTOutput("failuretable"),
+            downloadButton("downloadfailuretable", "Download XLSX")
+          )
         )
       ),
       tabItem("population",
@@ -173,11 +185,6 @@ ui <- dashboardPage(
             "Job Performance Dataset",
             DTOutput("table"),
             downloadButton("download", "Download XLSX")
-          ),
-          tabPanel(
-            "Failure Analysis Dataset",
-            DTOutput("failuretable"),
-            downloadButton("downloadfailuretable", "Download XLSX")
           )
         )
       )
@@ -549,12 +556,15 @@ server <- function(input, output, session) {
       mutate(Total = sum(n)) %>% 
       ungroup() %>%
       mutate(UnitModel = fct_reorder(UnitModel, Total)) %>% 
-      plot_ly(x = ~n, y = ~UnitModel, color = ~Group) %>% 
+      plot_ly(x = ~n, y = ~UnitModel, color = ~Group,
+              hoverinfo = "text",
+              text = ~paste("Failure Count:", n, "<br>", "Group:", Group)) %>% 
       add_bars() %>% 
       layout(
         barmode = "stack",
         xaxis = list(title = "Failure Count"),
-        yaxis = list(title = ""))
+        yaxis = list(title = ""),
+        showlegend = FALSE)
   })
   
   # Failure Count----
