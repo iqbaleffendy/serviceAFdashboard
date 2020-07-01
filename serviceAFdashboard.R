@@ -147,16 +147,28 @@ ui <- dashboardPage(
         )
       ),
       tabItem("population",
-        column(width = 9,
-          leafletOutput("population", height = "600px")
-        ),
-        column(width = 3,
-          box(title = "Population by Series",
-              width = NULL,
-              solidHeader = TRUE,
-              status = "primary",
-              align = "center",
-              tableOutput("populationdata")
+        tabsetPanel(
+          tabPanel(
+            "Population Map",
+            column(
+              width = 9,
+              leafletOutput("population", height = "500px")
+            ),
+            column(
+              width = 3,
+              box(
+                title = "Population by Series",
+                width = NULL,
+                solidHeader = TRUE,
+                status = "primary",
+                align = "center",
+                tableOutput("populationdata")
+              )
+            )
+          ),
+          tabPanel(
+            "Population Table",
+            DTOutput("populationtable")
           )
         )
       )
@@ -573,6 +585,10 @@ server <- function(input, output, session) {
         select(`SERIES`, `COUNT` = n) %>%
         arrange(desc(`COUNT`))
     )
+  })
+  
+  output$populationtable <- renderDT({
+    datapopulasi[, -9]
   })
   
 }
