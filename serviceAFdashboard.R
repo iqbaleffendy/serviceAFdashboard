@@ -22,8 +22,7 @@ branchlocation <- read_excel("import_data/branchlocation.xlsx")
 branchcode <- read_excel("import_data/branchcode.xlsx")
   branchcode$BranchCode <- as.character(branchcode$BranchCode)
   
-datapopulasi <- fread("import_data/datapopulasi.csv")
-popdata <- read_excel("import_data/popdata.xlsx")
+populationdata <- fread("import_data/datapopulasi.csv")
 
 # User Interface----
 ui <- dashboardPage(
@@ -615,20 +614,42 @@ server <- function(input, output, session) {
     data_click$clickedMarker <- input$population_marker_click
   })
   
+  # Population Table and Summary----
+  summarypopulation <- populationdata %>% 
+    mutate(`BRANCH ASS` = str_to_upper(`BRANCH ASS`)) %>% 
+    group_by(`BRANCH ASS`, `SERIES`) %>% 
+    count() %>% 
+    ungroup()
+  
+  populationtable <- populationdata %>% 
+    left_join(branchcode, by = c(`BRANCH ASS` = "Branch"))
+  
+  # Reactive Expression to Filter Population Table----
+  populationtable_filtered <- reactive({
+    if (input$branchname != "All") {
+      populationtable <- populationtable %>% 
+        filter(BranchName == input$branchname)
+    }
+    populationtable
+  })
+  
+  # Output Population Table based on Clicked Marker----  
   output$populationdata <- renderTable({
     if (is.null(data_click$clickedMarker)) {
       return(NULL)
     }
     return(
-      popdata %>% 
+      summarypopulation %>% 
         filter(`BRANCH ASS` == data_click$clickedMarker$id) %>% 
         select(`SERIES`, `COUNT` = n) %>%
         arrange(desc(`COUNT`))
     )
   })
   
+  # Output Population Dataset----
   output$populationtable <- renderDT({
-    datapopulasi[, -9]
+    populationtable_filtered() %>% 
+      select(1:8)
   })
   
 }
