@@ -653,6 +653,7 @@ server <- function(input, output, session) {
         filter(`BRANCH ASS` == data_click$clickedMarker$id) %>% 
         select(`MODEL`, `COUNT` = n) %>%
         arrange(desc(`COUNT`)),
+      caption = paste("Unit Population for Branch ", data_click$clickedMarker$id),
       options = list(
         paging = FALSE
       )
