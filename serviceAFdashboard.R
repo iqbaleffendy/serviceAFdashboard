@@ -42,6 +42,7 @@ ui <- dashboardPage(
       menuItem("Failure Analysis", tabName = "failure", icon = icon("list")),
       menuItem("Unit Population", tabName = "population", icon = icon("globe")),
       menuItem("Dataset", tabName = "dataset", icon = icon("table")),
+      menuItem("Source Code", tabName = "sourcecode", icon = icon("code")),
       selectInput(
         inputId = "agency", 
         label = "Select Agency",
@@ -186,6 +187,13 @@ ui <- dashboardPage(
             DTOutput("table"),
             downloadButton("download", "Download XLSX")
           )
+        )
+      ),
+      tabItem("sourcecode",
+        box(
+          title = "Source Code",
+          width = NULL, status = "primary", solidHeader = TRUE,
+          pre(includeText("serviceAFdashboard.R"))
         )
       )
     )
