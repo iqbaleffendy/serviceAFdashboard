@@ -3,7 +3,6 @@ library(shinydashboard)
 library(readxl)
 library(writexl)
 library(tidyverse)
-library(ggplot2)
 library(DT)
 library(data.table)
 library(plotly)
@@ -15,14 +14,12 @@ library(formattable)
 mydata <- read_excel("import_data/serviceperformance.xlsx")
   mydata$OpenDate <- as.Date(mydata$OpenDate)
   mydata$CloseDate <- as.Date(mydata$CloseDate)
-
+  
 failuredata <- read_excel("import_data/techreportsummary.xlsx")
   failuredata$`OPEN DATE` <- as.Date(failuredata$`OPEN DATE`)
-
+  
 branchlocation <- read_excel("import_data/branchlocation.xlsx")
-
 datapopulasi <- fread("import_data/datapopulasi.csv")
-
 popdata <- read_excel("import_data/popdata.xlsx")
 
 # User Interface----
@@ -41,9 +38,9 @@ ui <- dashboardPage(
       menuItem("Performance", tabName = "performance", icon = icon("dashboard")),
       menuItem("Valuation", tabName = "valuation", icon = icon("credit-card")),
       menuItem("Outstanding Job", tabName = "outstanding", icon = icon("exclamation")),
-      menuItem("Dataset", tabName = "dataset", icon = icon("table")),
       menuItem("Failure Analysis", tabName = "failure", icon = icon("list")),
       menuItem("Unit Population", tabName = "population", icon = icon("globe")),
+      menuItem("Dataset", tabName = "dataset", icon = icon("table")),
       selectInput(
         inputId = "agency", 
         label = "Select Agency",
@@ -128,10 +125,6 @@ ui <- dashboardPage(
               plotlyOutput("outstandingjobclassification"))
         )
       ),
-      tabItem("dataset",
-        DTOutput("table"),
-        downloadButton("download", "Download XLSX")
-      ),
       tabItem("failure",
         fluidRow(
           infoBoxOutput("failurecount"),
@@ -169,6 +162,20 @@ ui <- dashboardPage(
           tabPanel(
             "Population Table",
             DTOutput("populationtable")
+          )
+        )
+      ),
+      tabItem("dataset",
+        tabsetPanel(
+          tabPanel(
+            "Job Performance Dataset",
+            DTOutput("table"),
+            downloadButton("download", "Download XLSX")
+          ),
+          tabPanel(
+            "Failure Analysis Dataset",
+            DTOutput("failuretable"),
+            downloadButton("downloadfailuretable", "Download XLSX")
           )
         )
       )
@@ -392,12 +399,39 @@ server <- function(input, output, session) {
     )
   })
   
-  #Output DT Table----
+  #Output Performance Table----
   output$table <- renderDT({
     mydata_filtered() %>% 
       transmute(JobNo, OpenDate = as.Date(OpenDate), CloseDate = as.Date(CloseDate), 
                 JobStatus, Customer, JobDesc, TotalValue)
   })
+  
+  # Output Download Performance Table----
+  output$download <- downloadHandler(
+    filename = function(){
+      paste("serviceA&Fperformance-", Sys.Date(), ".xlsx", sep = "")
+    },
+    content = function(file){
+      write_xlsx(mydata_filtered(), file)
+    }
+  )
+  
+  # Output Failure Table----
+  output$failuretable <- renderDT({
+    failuredata_filtered() %>% 
+      filter(`JOB STATUS` == "CLOSED") %>% 
+      select(`JOB NO`, `UNIT MODEL`, `UNIT S/N`, `HM`, `CATEGORY`, `GROUP`)
+  })
+  
+  # Output Download Failure Table----
+  output$downloadfailuretable <- downloadHandler(
+    filename = function(){
+      paste("failureanalysis-", Sys.Date(), ".xlsx", sep = "")
+    },
+    content = function(file){
+      write_xlsx(failuredata_filtered(), file)
+    }
+  )
   
   #Output Outstanding Job Count----
   output$outstandingjobcount <- renderValueBox({
@@ -478,7 +512,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #Output Outstanding Job Classification----
+  # Output Outstanding Job Classification----
   output$outstandingjobclassification <- renderPlotly({
     mydata_filtered() %>%
       filter(JobStatus == "Outstanding") %>%
@@ -492,15 +526,6 @@ server <- function(input, output, session) {
       ) %>% 
       layout(legend = list(orientation = "h"))
   })
-  
-  output$download <- downloadHandler(
-    filename = function(){
-      paste("serviceA&Fperformance-", Sys.Date(), ".xlsx", sep = "")
-    },
-    content = function(file){
-      write_xlsx(mydata_filtered(), file)
-    }
-  )
   
   # Failure Chart----
   output$failurecategory <- renderPlotly({
@@ -561,7 +586,8 @@ server <- function(input, output, session) {
         lng = branchlocation$lon, 
         lat = branchlocation$lat, 
         layerId = branchlocation$BranchName,
-        label = branchlocation$BranchName
+        label = branchlocation$BranchName,
+        labelOptions = labelOptions(textsize = "15px")
       )
   })
   
