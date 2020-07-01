@@ -70,9 +70,9 @@ ui <- dashboardPage(
     tabItems(
       tabItem("performance",
         fluidRow(
-          infoBoxOutput("totalclosedjob"),
-          infoBoxOutput("totalclosedinternaljob"),
-          infoBoxOutput("totalclosedexternaljob")
+          valueBoxOutput("totalclosedjob"),
+          valueBoxOutput("totalclosedinternaljob"),
+          valueBoxOutput("totalclosedexternaljob")
         ),
         fluidRow(
           box(title = "Job Type Percentage",
@@ -128,8 +128,8 @@ ui <- dashboardPage(
       ),
       tabItem("failure",
         fluidRow(
-          infoBoxOutput("failurecount"),
-          infoBoxOutput("reported")
+          valueBoxOutput("failurecount"),
+          valueBoxOutput("reported")
         ),
         fluidRow(
           box(title = "Failure Analysis by Model",
@@ -270,37 +270,37 @@ server <- function(input, output, session) {
   })
   
   # Output Total Closed Job----
-  output$totalclosedjob <- renderInfoBox({
-    infoBox(
-      "Total Closed Job",
+  output$totalclosedjob <- renderValueBox({
+    valueBox(
       mydata_filtered() %>% 
         filter(JobStatus == "Closed") %>% 
         summarize(n()),
+      subtitle = "Total Closed Job",
       icon = icon("list"),
       color = "blue"
     )
   })
   
   # Output Total Closed Internal Job----
-  output$totalclosedinternaljob <- renderInfoBox({
-    infoBox(
-      "Total Closed Internal Job",
+  output$totalclosedinternaljob <- renderValueBox({
+    valueBox(
       mydata_filtered() %>% 
         filter(JobStatus == "Closed", JobCategory == "Internal Job") %>% 
         summarize(n()),
       icon = icon("list"),
+      subtitle = "Total Closed Internal Job",
       color = "light-blue"
     )
   })
   
   # Output Total Closed External Job----
-  output$totalclosedexternaljob <- renderInfoBox({
-    infoBox(
-      "Total Closed External Job",
+  output$totalclosedexternaljob <- renderValueBox({
+    valueBox(
       mydata_filtered() %>% 
         filter(JobStatus == "Closed", JobCategory == "External Job") %>% 
         summarize(n()),
       icon = icon("list"),
+      subtitle = "Total Closed External Job",
       color = "red"
     )
   })
@@ -393,7 +393,7 @@ server <- function(input, output, session) {
     valueBox(
       paste("Rp", accounting(partsvalue, digits = 0L)),
       subtitle = "Parts Value",
-      color = "blue",
+      color = "light-blue",
       icon = icon("money")
     )
   })
@@ -558,21 +558,21 @@ server <- function(input, output, session) {
   })
   
   # Failure Count----
-  output$failurecount <- renderInfoBox({
+  output$failurecount <- renderValueBox({
     failurecount <- failuredata_filtered() %>% 
       filter(JobStatus == "CLOSED") %>% 
       summarize(n())
     
-    infoBox(
-      title = "Failure Count",
+    valueBox(
       value = failurecount,
+      subtitle = "Failure Count",
       icon = icon("list"),
       color = "blue"
     )
   })
   
   # Report Percentage----
-  output$reported <- renderInfoBox({
+  output$reported <- renderValueBox({
     reported <- failuredata_filtered() %>% 
       filter(JobStatus == "CLOSED") %>% 
       group_by(Reported) %>% 
@@ -582,11 +582,11 @@ server <- function(input, output, session) {
       filter(Reported == "REPORTED") %>% 
       select(percentage)
     
-    infoBox(
-      title = "Technical Help Desk Reported",
+    valueBox(
       value = paste(round(reported, digits = 1), "%"),
+      subtitle = "Technical Help Desk Reported",
       icon = icon("list"),
-      color = "blue"
+      color = "light-blue"
     )
   })
   
