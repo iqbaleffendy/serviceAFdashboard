@@ -16,9 +16,12 @@ mydata <- read_excel("import_data/serviceperformance.xlsx")
   mydata$CloseDate <- as.Date(mydata$CloseDate)
   
 failuredata <- read_excel("import_data/techreportsummary.xlsx")
-  failuredata$`OPEN DATE` <- as.Date(failuredata$`OPEN DATE`)
+  failuredata$OpenDate <- as.Date(failuredata$OpenDate)
   
 branchlocation <- read_excel("import_data/branchlocation.xlsx")
+branchcode <- read_excel("import_data/branchcode.xlsx")
+  branchcode$BranchCode <- as.character(branchcode$BranchCode)
+  
 datapopulasi <- fread("import_data/datapopulasi.csv")
 popdata <- read_excel("import_data/popdata.xlsx")
 
@@ -185,7 +188,7 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
   
-  # Reactive expression to subset data based on user input----
+  # Reactive Expression to Subset Performance Data----
   mydata_filtered <- reactive({
     if (input$agency != "All") {
       mydata <- mydata %>% 
@@ -203,9 +206,20 @@ server <- function(input, output, session) {
     mydata
   })
   
+  # Reactive Expression to Subset Failure Data----
+  failuredata <- left_join(failuredata, branchcode, by = "BranchCode")
+  
   failuredata_filtered <- reactive({
-    failuredata %>% 
-      filter(`OPEN DATE` >= input$dates[1] & `OPEN DATE` <= input$dates[2])
+    if (input$branchname != "All") {
+      failuredata <- failuredata %>% 
+        filter(OpenDate >= input$dates[1] & OpenDate <= input$dates[2]) %>% 
+        filter(BranchName == input$branchname)
+    }
+    
+    failuredata <- failuredata %>% 
+      filter(OpenDate >= input$dates[1] & OpenDate <= input$dates[2])
+    
+    failuredata
   })
   
   #Output Barchart----
@@ -419,8 +433,8 @@ server <- function(input, output, session) {
   # Output Failure Table----
   output$failuretable <- renderDT({
     failuredata_filtered() %>% 
-      filter(`JOB STATUS` == "CLOSED") %>% 
-      select(`JOB NO`, `UNIT MODEL`, `UNIT S/N`, `HM`, `CATEGORY`, `GROUP`)
+      filter(JobStatus == "CLOSED") %>% 
+      select(JobNo, UnitModel, UnitSN, HM, Category, Group)
   })
   
   # Output Download Failure Table----
@@ -530,13 +544,13 @@ server <- function(input, output, session) {
   # Failure Chart----
   output$failurecategory <- renderPlotly({
     failuredata_filtered() %>% 
-      filter(`JOB STATUS` == "CLOSED") %>% 
-      count(`UNIT MODEL`, GROUP) %>%
-      group_by(`UNIT MODEL`) %>% 
+      filter(JobStatus == "CLOSED") %>% 
+      count(UnitModel, Group) %>%
+      group_by(UnitModel) %>% 
       mutate(Total = sum(n)) %>% 
       ungroup() %>%
-      mutate(`UNIT MODEL` = fct_reorder(`UNIT MODEL`, Total)) %>% 
-      plot_ly(x = ~n, y = ~`UNIT MODEL`, color = ~GROUP) %>% 
+      mutate(UnitModel = fct_reorder(UnitModel, Total)) %>% 
+      plot_ly(x = ~n, y = ~UnitModel, color = ~Group) %>% 
       add_bars() %>% 
       layout(
         barmode = "stack",
@@ -547,7 +561,7 @@ server <- function(input, output, session) {
   # Failure Count----
   output$failurecount <- renderInfoBox({
     failurecount <- failuredata_filtered() %>% 
-      filter(`JOB STATUS` == "CLOSED") %>% 
+      filter(JobStatus == "CLOSED") %>% 
       summarize(n())
     
     infoBox(
@@ -561,12 +575,12 @@ server <- function(input, output, session) {
   # Report Percentage----
   output$reported <- renderInfoBox({
     reported <- failuredata_filtered() %>% 
-      filter(`JOB STATUS` == "CLOSED") %>% 
-      group_by(REPORTED) %>% 
+      filter(JobStatus == "CLOSED") %>% 
+      group_by(Reported) %>% 
       summarize(count = n()) %>% 
       ungroup() %>% 
       mutate(percentage = count / sum(count) * 100) %>% 
-      filter(REPORTED == "REPORTED") %>% 
+      filter(Reported == "REPORTED") %>% 
       select(percentage)
     
     infoBox(
