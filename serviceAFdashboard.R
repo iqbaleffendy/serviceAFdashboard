@@ -671,7 +671,7 @@ server <- function(input, output, session) {
       class = 'cell-border stripe',
       caption = paste("Unit Population for Branch ", data_click$clickedMarker$id),
       options = list(
-        paging = FALSE
+        dom = 'tir'
       )
     )
   })
