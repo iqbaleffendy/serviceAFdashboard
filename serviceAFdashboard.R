@@ -670,7 +670,7 @@ server <- function(input, output, session) {
   
   # Output Population Dataset----
   output$populationtable <- renderDT({
-    populationtable_filtered() %>% select(1:8)
+    populationtable_filtered() %>% select(1:7, 9)
   })
   
 }
