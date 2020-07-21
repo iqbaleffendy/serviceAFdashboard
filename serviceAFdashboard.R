@@ -59,9 +59,7 @@ ui <- dashboardPage(
         inputId = "dates",
         label = "Select Date",
         start = min(mydata$OpenDate),
-        end = max(mydata$OpenDate),
-        min = min(mydata$OpenDate),
-        max = max(mydata$OpenDate)
+        end = max(mydata$OpenDate)
       )
     )
   ),
@@ -455,8 +453,8 @@ server <- function(input, output, session) {
     datatable(
       failuredata_filtered() %>% 
         filter(JobStatus == "CLOSED") %>% 
-        select(JobNo, UnitModel, UnitSN, HM, Category, Group),
-      colnames = c("Job No", "Unit Model", "Unit SN", "HM", "Category", "Group"),
+        select(JobNo, UnitModel, UnitSN, HM, AsistNo, Category, Group),
+      colnames = c("Job No", "Unit Model", "Unit SN", "HM", "Asist No", "Category", "Group"),
       class = 'cell-border stripe'
     )
   })
