@@ -433,6 +433,8 @@ server <- function(input, output, session) {
       mydata_filtered() %>% 
         transmute(JobNo, OpenDate = as.Date(OpenDate), CloseDate = as.Date(CloseDate), 
                   JobStatus, Customer, JobDesc, TotalValue),
+      colnames = c("Job No", "Open Date", "Close Date", "Job Status", "Customer",
+                   "Job Description", "Total Value"),
       class = 'cell-border stripe'
     )
     
@@ -454,6 +456,7 @@ server <- function(input, output, session) {
       failuredata_filtered() %>% 
         filter(JobStatus == "CLOSED") %>% 
         select(JobNo, UnitModel, UnitSN, HM, Category, Group),
+      colnames = c("Job No", "Unit Model", "Unit SN", "HM", "Category", "Group"),
       class = 'cell-border stripe'
     )
   })
@@ -680,6 +683,8 @@ server <- function(input, output, session) {
   output$populationtable <- renderDT({
     datatable(
       populationtable_filtered() %>% select(1:7, 9),
+      colnames = c("Tahun", "Series", "Model", "Unit SN", "Customer", "Delivery Date", 
+                   "Branch Ass", "Grade Service Years"),
       class = 'cell-border stripe'
     )
     
