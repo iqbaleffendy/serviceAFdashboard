@@ -148,6 +148,10 @@ ui <- dashboardPage(
             "Failure Analysis Dataset",
             DTOutput("failuretable"),
             downloadButton("downloadfailuretable", "Download XLSX")
+          ),
+          tabPanel(
+            "Priority Issues",
+            DTOutput("priorityissues")
           )
         )
       ),
@@ -468,6 +472,17 @@ server <- function(input, output, session) {
       write_xlsx(failuredata_filtered(), file)
     }
   )
+  
+  # Failure Priority Issues----
+  output$priorityissues <- renderDT({
+    datatable(
+      failuredata_filtered() %>% 
+        filter(Priority == "Priority") %>% 
+        select(JobNo, UnitModel, UnitSN, HM, AsistNo, Category, Group, JobStatus),
+      colnames = c("Job No", "Unit Model", "Unit SN", "HM", "Asist No", "Category", "Group", "Status"),
+      class = 'cell-border stripe'
+    )
+  })
   
   #Output Outstanding Job Count----
   output$outstandingjobcount <- renderValueBox({
