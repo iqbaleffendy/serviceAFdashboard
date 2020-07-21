@@ -429,9 +429,13 @@ server <- function(input, output, session) {
   
   #Output Performance Table----
   output$table <- renderDT({
-    mydata_filtered() %>% 
-      transmute(JobNo, OpenDate = as.Date(OpenDate), CloseDate = as.Date(CloseDate), 
-                JobStatus, Customer, JobDesc, TotalValue)
+    datatable(
+      mydata_filtered() %>% 
+        transmute(JobNo, OpenDate = as.Date(OpenDate), CloseDate = as.Date(CloseDate), 
+                  JobStatus, Customer, JobDesc, TotalValue),
+      class = 'cell-border stripe'
+    )
+    
   })
   
   # Output Download Performance Table----
@@ -446,9 +450,12 @@ server <- function(input, output, session) {
   
   # Output Failure Table----
   output$failuretable <- renderDT({
-    failuredata_filtered() %>% 
-      filter(JobStatus == "CLOSED") %>% 
-      select(JobNo, UnitModel, UnitSN, HM, Category, Group)
+    datatable(
+      failuredata_filtered() %>% 
+        filter(JobStatus == "CLOSED") %>% 
+        select(JobNo, UnitModel, UnitSN, HM, Category, Group),
+      class = 'cell-border stripe'
+    )
   })
   
   # Output Download Failure Table----
@@ -661,6 +668,7 @@ server <- function(input, output, session) {
         filter(`BRANCH ASS` == data_click$clickedMarker$id) %>% 
         select(`MODEL`, `COUNT` = n) %>%
         arrange(desc(`COUNT`)),
+      class = 'cell-border stripe',
       caption = paste("Unit Population for Branch ", data_click$clickedMarker$id),
       options = list(
         paging = FALSE
@@ -670,7 +678,11 @@ server <- function(input, output, session) {
   
   # Output Population Dataset----
   output$populationtable <- renderDT({
-    populationtable_filtered() %>% select(1:7, 9)
+    datatable(
+      populationtable_filtered() %>% select(1:7, 9),
+      class = 'cell-border stripe'
+    )
+    
   })
   
 }
