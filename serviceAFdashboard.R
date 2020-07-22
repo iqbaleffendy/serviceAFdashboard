@@ -133,9 +133,14 @@ ui <- dashboardPage(
               width = 8,
               box(title = "Failure Analysis by Model",
                   width = NULL,
-                  height = 500,
+                  height = 550,
                   status = "primary",
                   solidHeader = FALSE,
+                  selectInput(
+                    inputId = "sortbyfailure", 
+                    label = "Group Failure Count by", 
+                    choices = c("By Model", "By Category"),
+                    selected = "By Model"),
                   plotlyOutput("failurecategory"))
             ),
             column(
@@ -580,22 +585,41 @@ server <- function(input, output, session) {
   
   # Failure Chart----
   output$failurecategory <- renderPlotly({
-    failuredata_filtered() %>% 
-      filter(JobStatus == "CLOSED") %>% 
-      count(UnitModel, Group) %>%
-      group_by(UnitModel) %>% 
-      mutate(Total = sum(n)) %>% 
-      ungroup() %>%
-      mutate(UnitModel = fct_reorder(UnitModel, Total)) %>% 
-      plot_ly(x = ~n, y = ~UnitModel, color = ~Group,
-              hoverinfo = "text",
-              text = ~paste("Failure Count:", n, "<br>", "Group:", Group)) %>% 
-      add_bars() %>% 
-      layout(
-        barmode = "stack",
-        xaxis = list(title = "Failure Count"),
-        yaxis = list(title = ""),
-        showlegend = FALSE)
+    if (input$sortbyfailure == "By Model") {
+      failuredata_filtered() %>% 
+        filter(JobStatus == "CLOSED") %>% 
+        count(UnitModel, Group) %>%
+        group_by(UnitModel) %>% 
+        mutate(Total = sum(n)) %>% 
+        ungroup() %>%
+        mutate(UnitModel = fct_reorder(UnitModel, Total)) %>% 
+        plot_ly(x = ~n, y = ~UnitModel, color = ~Group,
+                hoverinfo = "text",
+                text = ~paste("Failure Count:", n, "<br>", "Group:", Group)) %>% 
+        add_bars() %>% 
+        layout(
+          barmode = "stack",
+          xaxis = list(title = "Failure Count"),
+          yaxis = list(title = ""),
+          showlegend = FALSE)
+    } else {
+      failuredata_filtered() %>% 
+        filter(JobStatus == "CLOSED") %>% 
+        count(Category, UnitModel) %>%
+        group_by(Category) %>% 
+        mutate(Total = sum(n)) %>% 
+        ungroup() %>%
+        mutate(Category = fct_reorder(Category, Total)) %>% 
+        plot_ly(x = ~n, y = ~Category, color = ~UnitModel,
+                hoverinfo = "text",
+                text = ~paste("Failure Count:", n, "<br>", "Unit Model:", UnitModel)) %>% 
+        add_bars() %>% 
+        layout(
+          barmode = "stack",
+          xaxis = list(title = "Failure Count"),
+          yaxis = list(title = ""),
+          showlegend = FALSE)
+    }
   })
   
   # Failure Count----
