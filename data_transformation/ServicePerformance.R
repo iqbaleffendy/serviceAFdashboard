@@ -1,11 +1,23 @@
 library(readxl)
-setwd("D:\\Altrak 1978\\Service Agri\\Data Service Agri\\Test R")
+library(lubridate)
+library(dplyr)
+library(magrittr)
+library(xlsx)
+
+setwd("D:\\Altrak 1978\\Project\\ServiceDashboard\\data_transformation")
 mydata <- read_excel("jobrptmo.xlsx")
 
-
-#giving column names
-colnames(mydata) <- c("JobNo", "OpenDate", "CloseDate", "Customer", "JobDesc", "Parts", 
-                      "Labour", "Others")
+#data preparation
+mydata <- mydata %>% 
+  select(2:8, 11, 13, 14) %>%
+  set_colnames(c("JobNo", "UnitModel", "UnitSN", "OpenDate", "CloseDate", 
+                 "Customer", "JobDesc", "Parts", "Labour", "Others")) %>%
+  filter(!is.na(JobNo)) %>% 
+  filter(JobNo != "JOB NO") %>% 
+  mutate(Parts = as.numeric(Parts), Labour = as.numeric(Labour), Others = as.numeric(Others)) %>%
+  mutate(OpenDate = as.numeric(OpenDate), CloseDate = as.numeric(CloseDate)) %>% 
+  mutate(OpenDate = as.Date(OpenDate, origin = "1899-12-30", tz = "UTC")) %>% 
+  mutate(CloseDate = as.Date(CloseDate, origin = "1899-12-30", tz = "UTC"))
 
 
 #adding job valuation
@@ -14,10 +26,7 @@ mydata$TotalValue <- mydata$Service + mydata$Parts
 
 
 #calculating open and closing date
-library(lubridate)
-library(dplyr)
-mydata$OpenDate <- as.Date(mydata$OpenDate)
-mydata$CloseDate <- as.Date(mydata$CloseDate)
+
 mydata$TotalDays <- ifelse(is.na(mydata$CloseDate), 
                             difftime(Sys.Date(), mydata$OpenDate, units = "days"),
                             difftime(mydata$CloseDate, mydata$OpenDate, units = "days"))
@@ -64,7 +73,7 @@ mydata <- merge(mydata, branchcode, by="BranchCode")
 
 #rearranging the order of columns
 head(mydata)
-finaldata <- mydata[ , c("JobNo", "Agency", "JobType", "JobCategory", "BranchCode", "BranchName",
+finaldata <- mydata[ , c("JobNo", "Agency", "JobType", "UnitModel", "UnitSN", "JobCategory", "BranchCode", "BranchName",
                          "OpenYear", "OpenDate", "CloseDate", "TotalDays", "JobStatus",
                          "OutstandingJobClass", "Customer", "JobDesc", "OverhaulJob", "Parts", "Labour", 
                          "Others", "Service", "TotalValue")]
@@ -79,5 +88,4 @@ finaldata$JobStatus <- factor(finaldata$JobStatus)
 
 
 #export final data
-library(xlsx)
 write.xlsx(finaldata, "serviceperformance.xlsx")
