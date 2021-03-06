@@ -8,22 +8,25 @@ library(data.table)
 library(plotly)
 library(leaflet)
 library(formattable)
+library(highcharter)
 
 
 # Load Dataset----
 mydata <- read_excel("import_data/serviceperformance.xlsx")
 mydata$OpenDate <- as.Date(mydata$OpenDate)
 mydata$CloseDate <- as.Date(mydata$CloseDate)
-mydata$OutstandingJobClass <- factor(mydata$OutstandingJobClass, 
-                                     levels = c(
-                                       "0-30 Days",
-                                       "31-60 Days",
-                                       "61-90 Days",
-                                       "91-120 Days",
-                                       "121-180 Days",
-                                       ">180 Days",
-                                       "Closed Job"
-                                     ))
+mydata$OutstandingJobClass <- factor(
+  mydata$OutstandingJobClass, 
+  levels = c(
+    "0-30 Days",
+    "31-60 Days",
+    "61-90 Days",
+    "91-120 Days",
+    "121-180 Days",
+    ">180 Days",
+    "Closed Job"
+  )
+)
 
 failuredata <- read_excel("import_data/techreportsummary.xlsx")
 failuredata$OpenDate <- as.Date(failuredata$OpenDate)
@@ -53,7 +56,6 @@ shiny::shinyApp(
       brandColor = "secondary",
       bs4SidebarMenu(
         bs4SidebarMenuItem("Performance", tabName = "performance", icon = "dashboard"),
-        bs4SidebarMenuItem("Valuation", tabName = "valuation", icon = "credit-card"),
         bs4SidebarMenuItem("Outstanding Job", tabName = "outstanding", icon = "exclamation"),
         bs4SidebarMenuItem("Failure Analysis", tabName = "failure", icon = "list"),
         bs4SidebarMenuItem("Unit Population", tabName = "population", icon = "globe"),
@@ -114,7 +116,7 @@ shiny::shinyApp(
               closable = FALSE,
               width = 4,
               status = "info",
-              plotlyOutput("piechart")
+              highchartOutput("piechart")
             ),
             bs4Card(
               title = "Service Performance",
@@ -123,33 +125,7 @@ shiny::shinyApp(
               width = 8,
               align = "center",
               status = "info",
-              plotlyOutput("barchart")
-            )
-          )
-        ),
-        bs4TabItem(
-          tabName = "valuation",
-          fluidRow(
-            bs4InfoBoxOutput("servicevalue"),
-            bs4InfoBoxOutput("partsvalue"),
-            bs4InfoBoxOutput("warrantyvalue")
-          ),
-          fluidRow(
-            bs4Card(
-              title = "Internal Job Valuation",
-              solidHeader = TRUE,
-              closable = FALSE,
-              width = 6,
-              status = "primary",
-              plotlyOutput("internalvaluation")
-            ),
-            bs4Card(
-              title = "External Job Valuation",
-              solidHeader = TRUE,
-              closable = FALSE,
-              width = 6,
-              status = "primary",
-              plotlyOutput("externalvaluation")
+              highchartOutput("barchart")
             )
           )
         ),
@@ -174,7 +150,7 @@ shiny::shinyApp(
                 choices = c("By Quantity", "By Value"),
                 selected = "By Quantity"
               ),
-              plotlyOutput("outstandingjob")
+              highchartOutput("outstandingjob")
             ),
             bs4Card(
               title = "Outstanding Job Classification",
@@ -183,7 +159,7 @@ shiny::shinyApp(
               width = 5,
               height = 520,
               status = "danger",
-              plotlyOutput("outstandingjobclassification")
+              highchartOutput("outstandingjobclassification")
             )
           )
         ),
@@ -306,24 +282,19 @@ shiny::shinyApp(
     failuredata_filtered <- reactive({
       if (input$branchname != "All") {
         failuredata <- failuredata %>% 
-          filter(OpenDate >= input$dates[1] & OpenDate <= input$dates[2]) %>% 
           filter(BranchName == input$branchname)
       }
       
       if (input$unitmodel != "All") {
         failuredata <- failuredata %>% 
-          filter(OpenDate >= input$dates[1] & OpenDate <= input$dates[2]) %>%
           filter(UnitModel == input$unitmodel)
       }
-      
-      failuredata <- failuredata %>% 
-        filter(OpenDate >= input$dates[1] & OpenDate <= input$dates[2])
       
       failuredata
     })
     
     #Output Barchart----
-    output$barchart <- renderPlotly({
+    output$barchart <- renderHighchart({
       if (input$branchname != "All") {
         mydata_filtered() %>%
           filter(JobStatus == "Closed") %>%
@@ -331,13 +302,11 @@ shiny::shinyApp(
           group_by(JobType) %>% 
           mutate(Total = sum(n)) %>% 
           ungroup() %>% 
-          mutate(JobType = fct_reorder(JobType, Total, .desc = TRUE)) %>% 
-          plot_ly(x = ~JobType, y = ~n, type = "bar", color = ~JobCategory) %>% 
-          layout(
-            barmode = "stack",
-            legend = list(orientation = "h"),
-            xaxis = list(title = "", tickangle = -45),
-            yaxis = list(title = ""))
+          mutate(JobType = fct_reorder(JobType, Total, .desc = TRUE)) %>%
+          arrange(desc(Total)) %>% 
+          hchart("column", hcaes(x = JobType, y = n, group = JobCategory), stacking = "normal") %>% 
+          hc_xAxis(title = list(text = "")) %>%
+          hc_yAxis(title = list(text = ""))
       } else {
         mydata_filtered() %>%
           filter(JobStatus == "Closed") %>%
@@ -345,29 +314,20 @@ shiny::shinyApp(
           group_by(BranchName) %>% 
           mutate(Total = sum(n)) %>% 
           ungroup() %>%
-          mutate(BranchName = fct_reorder(BranchName, Total, .desc = TRUE)) %>% 
-          plot_ly(x = ~BranchName, y = ~n, type = "bar", color = ~JobCategory) %>% 
-          layout(
-            barmode = "stack",
-            legend = list(orientation = "h"),
-            xaxis = list(title = "", tickangle = -45),
-            yaxis = list(title = ""))
+          mutate(BranchName = fct_reorder(BranchName, Total, .desc = TRUE)) %>%
+          arrange(desc(Total)) %>%
+          hchart("column", hcaes(x = BranchName, y = n, group = JobCategory), stacking = "normal") %>% 
+          hc_xAxis(title = list(text = "")) %>%
+          hc_yAxis(title = list(text = ""))
       }
     })
     
     # Output Piechart----
-    output$piechart <- renderPlotly({
+    output$piechart <- renderHighchart({
       mydata_filtered() %>%
         filter(JobStatus == "Closed") %>%
         count(JobType) %>% 
-        plot_ly(labels = ~JobType, values = ~n, type = "pie", 
-                textposition = "inside",
-                textinfo = "label+percent",
-                marker = list(
-                  line = list(color = "#FFFFFF", width = 1),
-                  showlegend = FALSE)
-        ) %>% 
-        layout(legend = list(orientation = "h"))
+        hchart("pie", hcaes(x = JobType, y = n))
     })
     
     # Output Total Closed Job----
@@ -406,113 +366,6 @@ shiny::shinyApp(
       )
     })
     
-    # Reactive Expression to filter data by Job Category----
-    mydata_filtered_internal <- reactive({
-      mydata_filtered() %>% 
-        filter(JobStatus == "Closed", JobCategory == "Internal Job")
-    })
-    
-    mydata_filtered_external <- reactive({
-      mydata_filtered() %>% 
-        filter(JobStatus == "Closed", JobCategory == "External Job")
-    })
-    
-    # Output Internal Valuation----
-    output$internalvaluation <- renderPlotly({
-      if (input$branchname == "All") {
-        mydata_filtered_internal() %>%
-          group_by(BranchName) %>% 
-          summarize(TotalValue = sum(TotalValue)) %>% 
-          ungroup() %>% 
-          mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
-          plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
-          add_bars(color = I("#0e1854")) %>% 
-          layout(
-            xaxis = list(title = ""),
-            yaxis = list(title = ""))
-      } else {
-        mydata_filtered_internal() %>% 
-          group_by(JobType) %>% 
-          summarize(TotalValue = sum(TotalValue)) %>% 
-          ungroup() %>% 
-          mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-          plot_ly(x = ~TotalValue, y = ~JobType) %>% 
-          add_bars(color = I("#0e1854")) %>% 
-          layout(
-            xaxis = list(title = ""),
-            yaxis = list(title = ""))
-      }
-    })
-    
-    # Output External Valuation----
-    output$externalvaluation <- renderPlotly({
-      if (input$branchname == "All") {
-        mydata_filtered_external() %>%
-          group_by(BranchName) %>% 
-          summarize(TotalValue = sum(TotalValue)) %>% 
-          ungroup() %>% 
-          mutate(BranchName = fct_reorder(BranchName, TotalValue)) %>% 
-          plot_ly(x = ~TotalValue, y = ~BranchName) %>% 
-          add_bars(color = I("#610f0f")) %>% 
-          layout(
-            xaxis = list(title = ""),
-            yaxis = list(title = ""))
-      } else {
-        mydata_filtered_external() %>% 
-          group_by(JobType) %>% 
-          summarize(TotalValue = sum(TotalValue)) %>% 
-          ungroup() %>% 
-          mutate(JobType = fct_reorder(JobType, TotalValue)) %>%
-          plot_ly(x = ~TotalValue, y = ~JobType) %>% 
-          add_bars(color = I("#610f0f")) %>% 
-          layout(
-            xaxis = list(title = ""),
-            yaxis = list(title = ""))
-      }
-    })
-    
-    # Output Service Value----
-    output$servicevalue <- renderbs4InfoBox({
-      servicevalue <- mydata_filtered() %>%
-        filter(JobStatus == "Closed") %>%
-        summarize(sum(Service))
-      
-      bs4InfoBox(
-        paste("Rp", accounting(servicevalue, digits = 0L)),
-        title = "Service Value",
-        status = "primary",
-        icon = "money"
-      )
-    })
-    
-    # Output Parts Value----
-    output$partsvalue <- renderbs4InfoBox({
-      partsvalue <- mydata_filtered() %>%
-        filter(JobStatus == "Closed") %>%
-        summarize(sum(Parts))
-      
-      bs4InfoBox(
-        paste("Rp", accounting(partsvalue, digits = 0L)),
-        title = "Parts Value",
-        status = "primary",
-        icon = "money"
-      )
-    })
-    
-    #Output Warranty Value----
-    output$warrantyvalue <- renderbs4InfoBox({
-      warrantyvalue <- mydata_filtered() %>%
-        filter(JobStatus == "Closed", JobType == "IW") %>%
-        summarize(sum(TotalValue))
-      
-      bs4InfoBox(
-        paste("Rp", accounting(warrantyvalue, digits = 0L)),
-        title = "Warranty Value",
-        status = "primary",
-        icon = "money"
-      )
-    })
-    
     #Output Performance Table----
     output$table <- renderDT({
       datatable(
@@ -526,14 +379,14 @@ shiny::shinyApp(
     })
     
     # Output Download Performance Table----
-    #output$download <- downloadHandler(
-    #filename = function(){
-    #paste("serviceA&Fperformance-", Sys.Date(), ".xlsx", sep = "")
-    #},
-    #content = function(file){
-    #write_xlsx(mydata_filtered(), file)
-    #}
-    #)
+    output$download <- downloadHandler(
+      filename = function(){
+        paste("serviceA&Fperformance-", Sys.Date(), ".xlsx", sep = "")
+      },
+      content = function(file){
+        write_xlsx(mydata_filtered(), file)
+      }
+    )
     
     # Output Failure Table----
     output$failuretable <- renderDT({
@@ -542,19 +395,24 @@ shiny::shinyApp(
           filter(!is.na(Issue)) %>% 
           select(JobNo, UnitModel, UnitSN, HM, AsistNo, Category, Component, PCL),
         colnames = c("Job No", "Unit Model", "Unit SN", "HM", "Asist No", "Category", "Component", "Failed Parts"),
-        class = 'cell-border stripe'
+        class = 'cell-border stripe',
+        options = list(
+          scrollX = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '120px', targets = 1))
+        )
       )
     })
     
     # Output Download Failure Table----
-    #output$downloadfailuretable <- downloadHandler(
-    #filename = function(){
-    #paste("failureanalysis-", Sys.Date(), ".xlsx", sep = "")
-    #},
-    #content = function(file){
-    #write_xlsx(failuredata_filtered(), file)
-    #}
-    #)
+    output$downloadfailuretable <- downloadHandler(
+      filename = function(){
+        paste("failureanalysis-", Sys.Date(), ".xlsx", sep = "")
+      },
+      content = function(file){
+        write_xlsx(failuredata_filtered(), file)
+      }
+    )
     
     # Reactive Expression to Separate PCL----
     failuredata_separate <- reactive({
@@ -620,7 +478,7 @@ shiny::shinyApp(
     })
     
     #Output Outstanding Job Chart----
-    output$outstandingjob <- renderPlotly({
+    output$outstandingjob <- renderHighchart({
       if (input$branchname != "All" & input$sortbyoutstanding == "By Quantity") {
         mydata_filtered() %>%
           filter(JobStatus == "Outstanding") %>% 
@@ -629,13 +487,10 @@ shiny::shinyApp(
           mutate(Total = sum(n)) %>% 
           ungroup() %>% 
           mutate(JobType = fct_reorder(JobType, Total, .desc = TRUE)) %>% 
-          plot_ly(x = ~JobType, y = ~n, color = ~OutstandingJobClass) %>% 
-          add_bars() %>% 
-          layout(
-            barmode = "stack",
-            legend = list(orientation = "h"),
-            xaxis = list(title = "", tickangle = -45),
-            yaxis = list(title = ""))
+          arrange(desc(Total)) %>%
+          hchart("column", hcaes(x = JobType, y = n, group = OutstandingJobClass), stacking = "normal") %>% 
+          hc_xAxis(title = list(text = "")) %>%
+          hc_yAxis(title = list(text = ""))
       } else if (input$branchname == "All" & input$sortbyoutstanding == "By Quantity") {
         mydata_filtered() %>%
           filter(JobStatus == "Outstanding") %>%
@@ -644,13 +499,10 @@ shiny::shinyApp(
           mutate(Total = sum(n)) %>% 
           ungroup() %>%
           mutate(BranchName = fct_reorder(BranchName, Total, .desc = TRUE)) %>% 
-          plot_ly(x = ~BranchName, y = ~n, color = ~OutstandingJobClass) %>% 
-          add_bars() %>% 
-          layout(
-            barmode = "stack",
-            legend = list(orientation = "h"),
-            xaxis = list(title = "", tickangle = -45),
-            yaxis = list(title = ""))
+          arrange(desc(Total)) %>%
+          hchart("column", hcaes(x = BranchName, y = n, group = OutstandingJobClass), stacking = "normal") %>% 
+          hc_xAxis(title = list(text = "")) %>%
+          hc_yAxis(title = list(text = ""))
       } else if (input$branchname != "All" & input$sortbyoutstanding == "By Value") {
         mydata_filtered() %>%
           filter(JobStatus == "Outstanding") %>% 
@@ -660,13 +512,10 @@ shiny::shinyApp(
           mutate(TotalValue = sum(Value)) %>% 
           ungroup() %>% 
           mutate(JobType = fct_reorder(JobType, TotalValue, .desc = TRUE)) %>% 
-          plot_ly(x = ~JobType, y = ~Value, color = ~OutstandingJobClass) %>% 
-          add_bars() %>% 
-          layout(
-            barmode = "stack",
-            legend = list(orientation = "h"),
-            xaxis = list(title = "", tickangle = -45),
-            yaxis = list(title = ""))
+          arrange(desc(TotalValue)) %>%
+          hchart("column", hcaes(x = JobType, y = Value, group = OutstandingJobClass), stacking = "normal") %>% 
+          hc_xAxis(title = list(text = "")) %>%
+          hc_yAxis(title = list(text = ""))
       } else if (input$branchname == "All" & input$sortbyoutstanding == "By Value") {
         mydata_filtered() %>%
           filter(JobStatus == "Outstanding") %>% 
@@ -676,29 +525,19 @@ shiny::shinyApp(
           mutate(TotalValue = sum(Value)) %>% 
           ungroup() %>% 
           mutate(BranchName = fct_reorder(BranchName, TotalValue, .desc = TRUE)) %>% 
-          plot_ly(x = ~BranchName, y = ~Value, color = ~OutstandingJobClass) %>% 
-          add_bars() %>% 
-          layout(
-            barmode = "stack",
-            legend = list(orientation = "h"),
-            xaxis = list(title = "", tickangle = -45),
-            yaxis = list(title = ""))
+          arrange(desc(TotalValue)) %>%
+          hchart("column", hcaes(x = BranchName, y = Value, group = OutstandingJobClass), stacking = "normal") %>% 
+          hc_xAxis(title = list(text = "")) %>%
+          hc_yAxis(title = list(text = ""))
       }
     })
     
     # Output Outstanding Job Classification----
-    output$outstandingjobclassification <- renderPlotly({
+    output$outstandingjobclassification <- renderHighchart({
       mydata_filtered() %>%
         filter(JobStatus == "Outstanding") %>%
         count(OutstandingJobClass) %>% 
-        plot_ly(labels = ~OutstandingJobClass, values = ~n, type = "pie", 
-                textposition = "inside",
-                textinfo = "label+percent",
-                marker = list(
-                  line = list(color = "#FFFFFF", width = 1),
-                  showlegend = FALSE)
-        ) %>% 
-        layout(legend = list(orientation = "h"))
+        hchart("pie", hcaes(x = OutstandingJobClass, y = n))
     })
     
     # Failure Chart Box----
