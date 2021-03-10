@@ -13,8 +13,15 @@ library(highcharter)
 
 # Load Dataset----
 mydata <- read_excel("import_data/serviceperformance.xlsx")
-mydata$OpenDate <- as.Date(mydata$OpenDate)
-mydata$CloseDate <- as.Date(mydata$CloseDate)
+mydata <- mydata %>% 
+  mutate(
+    OpenDate = as.Date(OpenDate),
+    CloseDate = as.Date(CloseDate),
+    Agency = as.factor(Agency),
+    BranchName = as.factor(BranchName),
+    JobType = as.factor(JobType),
+    UnitModel = as.factor(UnitModel)
+  )
 mydata$OutstandingJobClass <- factor(
   mydata$OutstandingJobClass, 
   levels = c(
@@ -69,25 +76,25 @@ shiny::shinyApp(
       selectInput(
         inputId = "agency", 
         label = "Select Agency",
-        choices = c("All", unique(mydata$Agency)),
+        choices = c("All", levels(mydata$Agency)),
         selected = "All"
       ),
       selectInput(
         inputId = "branchname",
         label = "Select Branch",
-        choices = c("All", unique(mydata$BranchName)),
+        choices = c("All", levels(mydata$BranchName)),
         selected = "All"
       ),
       selectInput(
         inputId = "jobtype",
         label = "Select Job Type",
-        choices = c("All", unique(mydata$JobType)),
+        choices = c("All", levels(mydata$JobType)),
         selected = "All"
       ),
       selectInput(
         inputId = "unitmodel",
         label = "Select Unit Model",
-        choices = c("All", unique(mydata$UnitModel)),
+        choices = c("All", levels(mydata$UnitModel)),
         selected = "All"
       ),
       dateRangeInput(
